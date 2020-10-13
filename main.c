@@ -147,17 +147,6 @@ char *parseSExpression(char *source) {
 
     return resultAtomicSymbol;
 }
-
-int main() {
-    printCharArray(parseSExpression("AB1234567890123456789012345678"));
-
-//    todo: сделать коммит
-//    todo: залить в репозиторий
-
-    return 0;
-}
-
-
 // Временное подобие тестов
 
 void printCharArrayTest() {
@@ -188,6 +177,20 @@ void getUpdatedCharArrayTest() {
     printCharArray(getUpdatedCharArray("ABC_", 'D'));
 }
 
-void parseSExpressionTest(){
+void parseSExpressionTest() {
     printCharArray(parseSExpression("A123456BCD"));
+}
+
+void usePointerForArraysTest() {
+    char *list[] = {"0", "1", "2"};
+    for (char **p = list; *p != "2"; p++) {
+        printf("%s", p[0]);
+    }
+}
+
+int main() {
+//    printCharArray(parseSExpression("AB1234567890123456789012345678"));
+
+    usePointerForArraysTest();
+    return 0;
 }
