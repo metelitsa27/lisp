@@ -45,7 +45,6 @@ void printCharArray(char *source) {
         i++;
     }
     if (*(source + i) == '\0') printCharSymbol(*(source + i));
-//    if (*(source + i) == '\0') printf("END!");
 }
 
 /**
@@ -96,11 +95,21 @@ char *getUpdatedCharArray(char *source, char addedSymbol) {
     char *result = malloc(newSize);
     strcat(result, source);
     *(result + strlen(result)) = addedSymbol;
-//    printCharArray(result);
     return result;
 }
 
-char *parseSExpression(char *source) {
+struct sExpression {
+    // Следующее подвыражение
+    struct sExpression *next;
+    //todo: добавить тип структуры
+    // Содержимое текущего подвыражжения
+    union {
+        char *atomicSymbol;
+        struct sExpression *subExpression;
+    };
+};
+
+struct sExpression *parseSimpleSExpression(char *source) {
     // Проверяем первый символ
 
     // Первый символ АС цифра?
@@ -143,9 +152,14 @@ char *parseSExpression(char *source) {
 
         i++;
     }
-//    printf("Success");
 
-    return resultAtomicSymbol;
+    // Формирование результирующего значения
+    struct sExpression *result = malloc(sizeof(struct sExpression));
+
+    result->next = NULL;
+    result->atomicSymbol = resultAtomicSymbol;
+
+    return result;
 }
 // Временное подобие тестов
 
@@ -177,10 +191,6 @@ void getUpdatedCharArrayTest() {
     printCharArray(getUpdatedCharArray("ABC_", 'D'));
 }
 
-void parseSExpressionTest() {
-    printCharArray(parseSExpression("A123456BCD"));
-}
-
 void usePointerForArraysTest() {
     char *list[] = {"0", "1", "2"};
     for (char **p = list; *p != "2"; p++) {
@@ -188,9 +198,70 @@ void usePointerForArraysTest() {
     }
 }
 
-int main() {
-//    printCharArray(parseSExpression("AB1234567890123456789012345678"));
+void pointerToPointerTest() {
+    // chars
+    char a = 'a';
+    char *pa = &a;
+    char **ppa = &pa;
+    printCharSymbol('a');
+    printCharSymbol(a);
+    printCharSymbol(*pa);
+    printCharSymbol(**ppa);
 
-    usePointerForArraysTest();
+    // digits
+    int b = 1;
+    int *pb = &b;
+    int **ppb = &pb;
+    printf("%d", 1);
+    printf("%d", b);
+    printf("%d", *pb);
+    printf("%d", **ppb);
+}
+
+// Интересный момен с передачей адреса переменной, int a = 5 -> square(&a)
+void square(int *a) {
+    *a = *a * *a;
+}
+
+void arrayOfPtrsTest() {
+    // Идея не совсем та, но близко - пофакту интересует, чтобы одна ячейка содержала тип второй, а вторая адрес указателя на новую структуру
+    char *ptr0 = "0";
+    char *ptr1 = "ABC";
+    char *ptr2 = "1";
+    char *ptr3 = "";
+    char **ptrs[4] = {&ptr0, &ptr1, &ptr2, &ptr3};
+    printCharArray(*ptrs[1]);
+
+    //todo: можно ли помещать адрес на указатель в значение переменной, есть ли какие-то ограничения?
+}
+
+void unionTest() {
+    union testUnion {
+        int x;
+        double y;
+    };
+
+    union testUnion value1;
+    value1.x = 10;
+    value1.y = 123.45;
+    printf("%f \n", value1.y);
+    value1.x = 10;
+    printf("%d \n", value1.x);
+    printf("%f \n", value1.y);
+}
+
+void printSimpleSExpressionTest() {
+    struct sExpression *simple = parseSimpleSExpression("A123456BCD");
+
+    char *s = simple->atomicSymbol;
+    printCharArray(s);
+}
+
+struct sExpression *parseSExepression(char *source) {
+//    strruct result
+}
+
+int main() {
+
     return 0;
 }
