@@ -62,12 +62,7 @@ void printIntValueLikeBool(int symbol) {
  * @return
  */
 int isSymbolAlphabetElement(char symbol) {
-    int i = 0;
-    while (*(symbolAlphabet + i) != '\0') {
-        if (*(symbolAlphabet + i) == symbol) return 1;
-        i++;
-    }
-    return 0;
+    return symbol >= 'A' && symbol <= 'Z';
 }
 
 /**
@@ -76,6 +71,7 @@ int isSymbolAlphabetElement(char symbol) {
  * @return
  */
 int isDigitAlphabetSymbol(char symbol) {
+    //todo: fix it later
     int i = 0;
     while (*(digitAlphabet + i) != '\0') {
         if (*(digitAlphabet + i) == symbol) return 1;
@@ -161,6 +157,106 @@ struct sExpression *parseSimpleSExpression(char *source) {
 
     return result;
 }
+
+struct sExpression *parseSExpression(char *source) {
+    struct sExpression *result = NULL;
+
+    // Текущая структура
+    struct sExpression *currentSExpression = NULL;
+
+    // Накапливающийся АС
+    char *currentAtomicSymbol = NULL;
+
+    // Проходим строку
+    int i = 0;
+    while (*(source + i) != '\0') {
+        //  АС закончился?
+        if (*(source + i) == '.' || *(source + i) == ' ') {
+            // Проверка корректности АС: что не пустой и исходное выражение не заканчивается на "."
+            if (currentAtomicSymbol == NULL) {
+                printf("Empty current atomic symbol");
+                return NULL;
+            } else {
+                // Это первое выражение АС
+                if (result == NULL) {
+                    result = malloc(sizeof(struct sExpression));
+
+                    currentSExpression = malloc(sizeof(struct sExpression));
+                    result->atomicSymbol = currentAtomicSymbol;
+                    result->next = currentSExpression;
+
+                    currentAtomicSymbol = NULL;
+                } else {
+                    struct sExpression *newExpression = malloc(sizeof(struct sExpression));
+
+                    currentSExpression->atomicSymbol = currentAtomicSymbol;
+                    currentSExpression->next = newExpression;
+
+                    currentSExpression = newExpression;
+
+                    currentAtomicSymbol = NULL;
+                }
+                i++;
+                continue;
+            }
+        }
+
+        // Проверяем первый символ текущего АС?
+        if (currentAtomicSymbol == NULL) {
+            // Первый символ АС цифра?
+            if (isDigitAlphabetSymbol(*(source + i))) {
+                printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c \n",
+                       *(source + i));
+                return NULL;
+            }
+
+            // Первый символ относится к допустимому алфавиту?
+            if (!isSymbolAlphabetElement(*(source + i))) {
+                printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c \n",
+                       *(source + i));
+                return NULL;
+            }
+
+            // Добавление символа в АС
+            currentAtomicSymbol = "";
+            currentAtomicSymbol = getUpdatedCharArray(currentAtomicSymbol, *(source + i));
+        } else {
+            // Дополняем текущий АС
+
+            // Символ относится к допустимому алфавиту или является цифрой?
+            if (!isSymbolAlphabetElement(*(source + i)) && !isDigitAlphabetSymbol(*(source + i))) {
+
+                printf("Unexpected symbol value=%c \n", *(source + i));
+                return NULL;
+            }
+
+            // Итоговая длина АС не превышает 30 символов?
+            if (strlen(currentAtomicSymbol) >= 30) {
+                printf("Unexpected atomic symbol length. Expected no more then 30 symbols");
+                return NULL;
+            }
+
+            // Добавление символа в АС
+            currentAtomicSymbol = getUpdatedCharArray(currentAtomicSymbol, *(source + i));
+        }
+
+        // Формируем АС
+        i++;
+    }
+
+    // Добавляем последний АС в результирующую структуру
+    if (currentAtomicSymbol == NULL) {
+        printf("Empty last atomic symbol");
+        return NULL;
+    } else {
+        currentSExpression->atomicSymbol = currentAtomicSymbol;
+        currentSExpression->next = NULL;
+    }
+
+    return result;
+}
+
+
 // Временное подобие тестов
 
 void printCharArrayTest() {
@@ -257,11 +353,12 @@ void printSimpleSExpressionTest() {
     printCharArray(s);
 }
 
-struct sExpression *parseSExepression(char *source) {
-//    strruct result
+void parseSExpressionTest() {
+    struct sExpression *e = parseSExpression("ABC.DEF GHJKL.MNOP Q RS TUV.YXW Z");
 }
 
 int main() {
+    parseSExpressionTest();
 
     return 0;
 }
