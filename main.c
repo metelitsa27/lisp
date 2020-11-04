@@ -2,14 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-// todo: реализовать
-// на вход передаём строку, например, A.B.C.D
-
-// Как определять уровни элементов выражения? A.B.(C.D).E->(A.B.(C.D)).E
-// 1-й вариант: добавить специальный указатель на следующий уровень в исходную стуктуру,
-// т.е. перед указателем на следующий элемент должен стоять тип перехода: переход того же уровня или ниже
-
-
 // Переменные
 char *symbolAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -20,6 +12,13 @@ char symbolAlphabet2[27] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K
 char *emptyCharArray = "";
 
 char *digitAlphabet = "0123456789";
+
+/**
+ * Типы содержимого s-выражения
+ */
+enum sExspressionType {
+    ATOMIC_SYMBOL = 0, EXPRESSION, DIGITAL
+};
 
 /**
  * Вывести единичный символ
@@ -97,12 +96,11 @@ char *getUpdatedCharArray(char *source, char addedSymbol) {
 struct sExpression {
     // Следующее подвыражение
     struct sExpression *next;
-    //todo: добавить тип структуры
+    // Тип содержимого текущего подвыражения
+    enum sExspressionType type;
     // Содержимое текущего подвыражжения
-    union {
-        char *atomicSymbol;
-        struct sExpression *subExpression;
-    };
+    char *atomicSymbol;
+    struct sExpression *subExpression;
 };
 
 struct sExpression *parseSimpleSExpression(char *source) {
@@ -256,6 +254,128 @@ struct sExpression *parseSExpression(char *source) {
     return result;
 }
 
+struct sExpression *parse(char *source, int *counter) {
+    struct sExpression *currentSExpression = malloc(sizeof(struct sExpression));;
+    currentSExpression->atomicSymbol = NULL;
+    currentSExpression->subExpression = NULL;
+    currentSExpression->next = NULL;
+
+    // Накапливающийся АС
+    char *currentAtomicSymbol = NULL;
+
+    // Счётчик открытых скобок
+//    int *openBracketCounter = 0;
+
+    // Проходим строку
+    while (*(source + *counter) != '\0') {
+        if (*(source + *counter) == '(') {
+            // Обновляем тип
+            currentSExpression->type = EXPRESSION;
+
+            // Фиксация открытия скобки
+//            openBracketCounter++;
+
+            (*counter)++;
+
+            currentSExpression->subExpression = parse(source, counter);
+        } else if (*(source + *counter) == ')') {
+            // Фиксация закрытия скобки
+//            openBracketCounter--;
+
+            if (currentSExpression->type == ATOMIC_SYMBOL
+                && currentSExpression->atomicSymbol == NULL) {
+                if (currentAtomicSymbol == NULL) {
+                    printf("Unexpected ending of expression");
+                    return NULL;
+                }
+                currentSExpression->atomicSymbol = currentAtomicSymbol;
+            }
+
+            // Возвращение значений, пока не вернёмся к исходному выражению
+            if (currentSExpression->type == EXPRESSION) {
+                (*counter)++;
+            } else return currentSExpression;
+        } else if (*(source + *counter) == ' ' || *(source + *counter) == '.') {
+
+            //todo: тут должны быть хитррые проверки на отсутствие наличие предыдущего АС и т.п.
+
+            // Проверка корректности АС: что не пустой и исходное выражение не заканчивается на "."
+            if (currentSExpression->type == ATOMIC_SYMBOL
+                && currentAtomicSymbol == NULL) {
+                printf("Empty current atomic symbol");
+                return NULL;
+            } else {
+                // Присваиваем АС и зануляем буфер АС
+                currentSExpression->atomicSymbol = currentAtomicSymbol;
+                currentAtomicSymbol = NULL;
+                (*counter)++;
+
+                currentSExpression->next = parse(source, counter);
+            }
+        } else {
+            // Проверяем первый символ текущего АС?
+            if (currentAtomicSymbol == NULL) {
+                // Первый символ АС цифра?
+                if (isDigitAlphabetSymbol(*(source + *counter))) {
+                    printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c \n",
+                           *(source + *counter));
+                    return NULL;
+                }
+
+                // Первый символ относится к допустимому алфавиту?
+                if (!isSymbolAlphabetElement(*(source + *counter))) {
+                    printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c \n",
+                           *(source + *counter));
+                    return NULL;
+                }
+
+                // Добавление символа в АС
+                currentAtomicSymbol = "";
+                currentAtomicSymbol = getUpdatedCharArray(currentAtomicSymbol, *(source + *counter));
+            } else {
+                // Дополняем текущий АС
+
+                // Символ относится к допустимому алфавиту или является цифрой?
+                if (!isSymbolAlphabetElement(*(source + *counter)) && !isDigitAlphabetSymbol(*(source + *counter))) {
+                    printf("Unexpected symbol value=%c \n", *(source + *counter));
+                    return NULL;
+                }
+
+                // Итоговая длина АС не превышает 30 символов?
+                if (strlen(currentAtomicSymbol) >= 30) {
+                    printf("Unexpected atomic symbol length. Expected no more then 30 symbols");
+                    return NULL;
+                }
+
+                // Добавление символа в АС
+                currentAtomicSymbol = getUpdatedCharArray(currentAtomicSymbol, *(source + *counter));
+            }
+            (*counter)++;
+        }
+    }
+
+//    todo: проверка на наличие содержимого выражения
+    if (currentAtomicSymbol != NULL) {
+        currentSExpression->atomicSymbol = currentAtomicSymbol;
+    }
+
+    return currentSExpression;
+}
+
+//    if(openBracketCounter != 0){
+//        printf("There are hasn't closed brackets! Bracket counter=%c", openBracketCounter);
+//        return NULL;
+//    }
+
+struct sExpression *parseExpression(char *source) {
+    // todo: реализовать проверку незакрытых скобок
+    // todo: рассмотреть возможность АС без использования буфера - сразу в результирующее выражение
+
+    int counter = 0;
+    struct sExpression *result = parse(source, &counter);
+    return result;
+}
+
 
 // Временное подобие тестов
 
@@ -353,12 +473,21 @@ void printSimpleSExpressionTest() {
     printCharArray(s);
 }
 
-void parseSExpressionTest() {
+void parseLinearSExpressionTest() {
     struct sExpression *e = parseSExpression("ABC.DEF GHJKL.MNOP Q RS TUV.YXW Z");
 }
 
+void parseComplexSExpressionTest() {
+//    struct sExpression *e1 = parseSExpression("A.B");
+//    struct sExpression *e2 = parseExpression("A.B");
+//    struct sExpression *e = parseExpression("(A.B)");
+    struct sExpression *e = parseExpression("(A.B).C");
+    int i = 0;
+}
+
 int main() {
-    parseSExpressionTest();
+    parseComplexSExpressionTest();
+
 
     return 0;
 }
