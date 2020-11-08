@@ -254,7 +254,7 @@ struct sExpression *parseSExpression(char *source) {
     return result;
 }
 
-struct sExpression *parse(char *source, int *counter) {
+struct sExpression *parse(char *source, int *counter, int *openBracketCounter) {
     struct sExpression *currentSExpression = malloc(sizeof(struct sExpression));;
     currentSExpression->atomicSymbol = NULL;
     currentSExpression->subExpression = NULL;
@@ -263,9 +263,6 @@ struct sExpression *parse(char *source, int *counter) {
     // Накапливающийся АС
     char *currentAtomicSymbol = NULL;
 
-    // Счётчик открытых скобок
-//    int *openBracketCounter = 0;
-
     // Проходим строку
     while (*(source + *counter) != '\0') {
         if (*(source + *counter) == '(') {
@@ -273,15 +270,12 @@ struct sExpression *parse(char *source, int *counter) {
             currentSExpression->type = EXPRESSION;
 
             // Фиксация открытия скобки
-//            openBracketCounter++;
+            (*openBracketCounter)++;
 
             (*counter)++;
 
-            currentSExpression->subExpression = parse(source, counter);
+            currentSExpression->subExpression = parse(source, counter, openBracketCounter);
         } else if (*(source + *counter) == ')') {
-            // Фиксация закрытия скобки
-//            openBracketCounter--;
-
             if (currentSExpression->type == ATOMIC_SYMBOL
                 && currentSExpression->atomicSymbol == NULL) {
                 if (currentAtomicSymbol == NULL) {
@@ -293,11 +287,12 @@ struct sExpression *parse(char *source, int *counter) {
 
             // Возвращение значений, пока не вернёмся к исходному выражению
             if (currentSExpression->type == EXPRESSION) {
+                // Фиксация закрытия скобки
+                (*openBracketCounter)--;
+                // Переход к следующему символу
                 (*counter)++;
             } else return currentSExpression;
         } else if (*(source + *counter) == ' ' || *(source + *counter) == '.') {
-
-            //todo: тут должны быть хитррые проверки на отсутствие наличие предыдущего АС и т.п.
 
             // Проверка корректности АС: что не пустой и исходное выражение не заканчивается на "."
             if (currentSExpression->type == ATOMIC_SYMBOL
@@ -310,7 +305,7 @@ struct sExpression *parse(char *source, int *counter) {
                 currentAtomicSymbol = NULL;
                 (*counter)++;
 
-                currentSExpression->next = parse(source, counter);
+                currentSExpression->next = parse(source, counter, openBracketCounter);
             }
         } else {
             // Проверяем первый символ текущего АС?
@@ -362,17 +357,23 @@ struct sExpression *parse(char *source, int *counter) {
     return currentSExpression;
 }
 
-//    if(openBracketCounter != 0){
-//        printf("There are hasn't closed brackets! Bracket counter=%c", openBracketCounter);
-//        return NULL;
-//    }
-
 struct sExpression *parseExpression(char *source) {
-    // todo: реализовать проверку незакрытых скобок
+    // todo: добавить возможность вывода индекса, где возникла ошибка
     // todo: рассмотреть возможность АС без использования буфера - сразу в результирующее выражение
 
+    // Счётчик для прохождения по массиву символов
     int counter = 0;
-    struct sExpression *result = parse(source, &counter);
+
+    // Счётчик открытых скобок
+    int openBracketCounter = 0;
+
+    struct sExpression *result = parse(source, &counter, &openBracketCounter);
+
+    if (openBracketCounter != 0) {
+        printf("There are hasn't closed brackets! Bracket counter=%c", openBracketCounter);
+        return NULL;
+    }
+
     return result;
 }
 
@@ -478,10 +479,20 @@ void parseLinearSExpressionTest() {
 }
 
 void parseComplexSExpressionTest() {
+    // Корректно парсятся
 //    struct sExpression *e1 = parseSExpression("A.B");
 //    struct sExpression *e2 = parseExpression("A.B");
 //    struct sExpression *e = parseExpression("(A.B)");
-    struct sExpression *e = parseExpression("(A.B).C");
+//    struct sExpression *e = parseExpression("(A.B).C");
+//    struct sExpression *e = parseExpression("(A.B).C.D");
+//    struct sExpression *e = parseExpression("(A.B).(C.D)");
+//    struct sExpression *e = parseExpression("(A.(B.C))");
+//    struct sExpression *e = parseExpression("(((A.B)))");
+
+// fixme: не парсятся как надо
+
+//    struct sExpression *e = parseExpression("((A.B).C).D");
+    struct sExpression *e = parseExpression("(((A.B))).D");
     int i = 0;
 }
 
