@@ -254,14 +254,11 @@ struct sExpression *parseSExpression(char *source) {
     return result;
 }
 
-struct sExpression *parse(char *source, int *counter, int *openBracketCounter) {
+struct sExpression *parse(char *source, int *counter, int *openBracketCounter, struct sExpression *previousExpression) {
     struct sExpression *currentSExpression = malloc(sizeof(struct sExpression));;
     currentSExpression->atomicSymbol = NULL;
     currentSExpression->subExpression = NULL;
     currentSExpression->next = NULL;
-
-    // Накапливающийся АС
-    char *currentAtomicSymbol = NULL;
 
     // Проходим строку
     while (*(source + *counter) != '\0') {
@@ -274,42 +271,34 @@ struct sExpression *parse(char *source, int *counter, int *openBracketCounter) {
 
             (*counter)++;
 
-            currentSExpression->subExpression = parse(source, counter, openBracketCounter);
-        } else if (*(source + *counter) == ')') {
-            if (currentSExpression->type == ATOMIC_SYMBOL
-                && currentSExpression->atomicSymbol == NULL) {
-                if (currentAtomicSymbol == NULL) {
-                    printf("Unexpected ending of expression");
-                    return NULL;
-                }
-                currentSExpression->atomicSymbol = currentAtomicSymbol;
-            }
+            currentSExpression->subExpression = parse(source, counter, openBracketCounter, currentSExpression);
 
+            // Проверка на некорректность исходного выражения
+            if (currentSExpression->subExpression == NULL) {
+                return NULL;
+            }
+        } else if (*(source + *counter) == ')') {
             // Возвращение значений, пока не вернёмся к исходному выражению
-            if (currentSExpression->type == EXPRESSION) {
+            if (currentSExpression->type == EXPRESSION && currentSExpression != previousExpression) {
                 // Фиксация закрытия скобки
                 (*openBracketCounter)--;
                 // Переход к следующему символу
                 (*counter)++;
-            } else return currentSExpression;
+
+                previousExpression = currentSExpression;
+            } else break;
         } else if (*(source + *counter) == ' ' || *(source + *counter) == '.') {
+            (*counter)++;
 
-            // Проверка корректности АС: что не пустой и исходное выражение не заканчивается на "."
-            if (currentSExpression->type == ATOMIC_SYMBOL
-                && currentAtomicSymbol == NULL) {
-                printf("Empty current atomic symbol");
+            currentSExpression->next = parse(source, counter, openBracketCounter, currentSExpression);
+
+            // Проверка на некорректность исходного выражения
+            if (currentSExpression->next == NULL) {
                 return NULL;
-            } else {
-                // Присваиваем АС и зануляем буфер АС
-                currentSExpression->atomicSymbol = currentAtomicSymbol;
-                currentAtomicSymbol = NULL;
-                (*counter)++;
-
-                currentSExpression->next = parse(source, counter, openBracketCounter);
             }
         } else {
             // Проверяем первый символ текущего АС?
-            if (currentAtomicSymbol == NULL) {
+            if (currentSExpression->atomicSymbol == NULL) {
                 // Первый символ АС цифра?
                 if (isDigitAlphabetSymbol(*(source + *counter))) {
                     printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c \n",
@@ -325,8 +314,9 @@ struct sExpression *parse(char *source, int *counter, int *openBracketCounter) {
                 }
 
                 // Добавление символа в АС
-                currentAtomicSymbol = "";
-                currentAtomicSymbol = getUpdatedCharArray(currentAtomicSymbol, *(source + *counter));
+                currentSExpression->atomicSymbol = "";
+                currentSExpression->atomicSymbol = getUpdatedCharArray(currentSExpression->atomicSymbol,
+                                                                       *(source + *counter));
             } else {
                 // Дополняем текущий АС
 
@@ -337,21 +327,31 @@ struct sExpression *parse(char *source, int *counter, int *openBracketCounter) {
                 }
 
                 // Итоговая длина АС не превышает 30 символов?
-                if (strlen(currentAtomicSymbol) >= 30) {
+                if (strlen(currentSExpression->atomicSymbol) >= 30) {
                     printf("Unexpected atomic symbol length. Expected no more then 30 symbols");
                     return NULL;
                 }
 
                 // Добавление символа в АС
-                currentAtomicSymbol = getUpdatedCharArray(currentAtomicSymbol, *(source + *counter));
+                currentSExpression->atomicSymbol = getUpdatedCharArray(
+                        currentSExpression->atomicSymbol,
+                        *(source + *counter)
+                );
             }
             (*counter)++;
         }
     }
 
-//    todo: проверка на наличие содержимого выражения
-    if (currentAtomicSymbol != NULL) {
-        currentSExpression->atomicSymbol = currentAtomicSymbol;
+    // Проверки на корректность содержимого
+
+    if (currentSExpression->type == EXPRESSION && currentSExpression->subExpression == NULL) {
+        printf("Empty sub expression value");
+        return NULL;
+    }
+
+    if (currentSExpression->type == ATOMIC_SYMBOL && currentSExpression->atomicSymbol == NULL) {
+        printf("Empty atomic symbol value");
+        return NULL;
     }
 
     return currentSExpression;
@@ -359,7 +359,6 @@ struct sExpression *parse(char *source, int *counter, int *openBracketCounter) {
 
 struct sExpression *parseExpression(char *source) {
     // todo: добавить возможность вывода индекса, где возникла ошибка
-    // todo: рассмотреть возможность АС без использования буфера - сразу в результирующее выражение
 
     // Счётчик для прохождения по массиву символов
     int counter = 0;
@@ -367,10 +366,10 @@ struct sExpression *parseExpression(char *source) {
     // Счётчик открытых скобок
     int openBracketCounter = 0;
 
-    struct sExpression *result = parse(source, &counter, &openBracketCounter);
+    struct sExpression *result = parse(source, &counter, &openBracketCounter, NULL);
 
     if (openBracketCounter != 0) {
-        printf("There are hasn't closed brackets! Bracket counter=%c", openBracketCounter);
+        printf("\nThere are hasn't closed brackets: open brackets counter=%d", *(&openBracketCounter));
         return NULL;
     }
 
@@ -479,7 +478,7 @@ void parseLinearSExpressionTest() {
 }
 
 void parseComplexSExpressionTest() {
-    // Корректно парсятся
+    // Парсинг корректных s-выражений
 //    struct sExpression *e1 = parseSExpression("A.B");
 //    struct sExpression *e2 = parseExpression("A.B");
 //    struct sExpression *e = parseExpression("(A.B)");
@@ -489,16 +488,28 @@ void parseComplexSExpressionTest() {
 //    struct sExpression *e = parseExpression("(A.(B.C))");
 //    struct sExpression *e = parseExpression("(((A.B)))");
 
-// fixme: не парсятся как надо
-
+//    struct sExpression *e = parseExpression("((A.B)).D");
+//    struct sExpression *e = parseExpression("(((A.B))).D");
 //    struct sExpression *e = parseExpression("((A.B).C).D");
-    struct sExpression *e = parseExpression("(((A.B))).D");
+//    struct sExpression *e = parseExpression("(((A.B).C)).D");
+    struct sExpression *e = parseExpression("(((A.B).C)).D.(E.(F.G))");
+
+    // todo: Отлавливаются неправильные s-выражения
+//    struct sExpression *e = parseExpression("()");
+//    struct sExpression *e = parseExpression(".(");
+//    struct sExpression *e = parseExpression(".");
+//    struct sExpression *e = parseExpression("(.");
+//    struct sExpression *e = parseExpression("A.(");
+//    struct sExpression *e = parseExpression("A(");
+//    struct sExpression *e = parseExpression("A.(B");
+//    struct sExpression *e = parseExpression("A.(B.");
+//    struct sExpression *e = parseExpression("((A))");
+//    struct sExpression *e = parseExpression("(A.B(.C))");
     int i = 0;
 }
 
 int main() {
     parseComplexSExpressionTest();
-
 
     return 0;
 }
