@@ -301,15 +301,15 @@ struct sExpression *parse(char *source, int *counter, int *openBracketCounter, s
             if (currentSExpression->atomicSymbol == NULL) {
                 // Первый символ АС цифра?
                 if (isDigitAlphabetSymbol(*(source + *counter))) {
-                    printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c \n",
-                           *(source + *counter));
+                    printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c. Parsing stopped on index=%d \n",
+                           *(source + *counter), *counter);
                     return NULL;
                 }
 
                 // Первый символ относится к допустимому алфавиту?
                 if (!isSymbolAlphabetElement(*(source + *counter))) {
-                    printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c \n",
-                           *(source + *counter));
+                    printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c. Parsing stopped on index=%d \n",
+                           *(source + *counter), *counter);
                     return NULL;
                 }
 
@@ -322,13 +322,15 @@ struct sExpression *parse(char *source, int *counter, int *openBracketCounter, s
 
                 // Символ относится к допустимому алфавиту или является цифрой?
                 if (!isSymbolAlphabetElement(*(source + *counter)) && !isDigitAlphabetSymbol(*(source + *counter))) {
-                    printf("Unexpected symbol value=%c \n", *(source + *counter));
+                    printf("Unexpected symbol value=%c. Parsing stopped on index=%d \n", *(source + *counter),
+                           *counter);
                     return NULL;
                 }
 
                 // Итоговая длина АС не превышает 30 символов?
                 if (strlen(currentSExpression->atomicSymbol) >= 30) {
-                    printf("Unexpected atomic symbol length. Expected no more then 30 symbols");
+                    printf("Unexpected atomic symbol length. Expected no more then 30 symbols. Parsing stopped on index=%d",
+                           *counter);
                     return NULL;
                 }
 
@@ -345,12 +347,12 @@ struct sExpression *parse(char *source, int *counter, int *openBracketCounter, s
     // Проверки на корректность содержимого
 
     if (currentSExpression->type == EXPRESSION && currentSExpression->subExpression == NULL) {
-        printf("Empty sub expression value");
+        printf("Empty sub expression value. Parsing stopped on index=%d", *counter);
         return NULL;
     }
 
     if (currentSExpression->type == ATOMIC_SYMBOL && currentSExpression->atomicSymbol == NULL) {
-        printf("Empty atomic symbol value");
+        printf("Empty atomic symbol value. Parsing stopped on index=%d", *counter);
         return NULL;
     }
 
@@ -368,8 +370,10 @@ struct sExpression *parseExpression(char *source) {
 
     struct sExpression *result = parse(source, &counter, &openBracketCounter, NULL);
 
+    //todo: перенести в дальнейшем эту проверку в parse
     if (openBracketCounter != 0) {
-        printf("\nThere are hasn't closed brackets: open brackets counter=%d", *(&openBracketCounter));
+        printf("\nThere are hasn't closed brackets: open brackets counter=%d. Parsing stopped on index=%d \n",
+               *(&openBracketCounter), counter);
         return NULL;
     }
 
@@ -479,37 +483,64 @@ void parseLinearSExpressionTest() {
 
 void parseComplexSExpressionTest() {
     // Парсинг корректных s-выражений
-//    struct sExpression *e1 = parseSExpression("A.B");
-//    struct sExpression *e2 = parseExpression("A.B");
-//    struct sExpression *e = parseExpression("(A.B)");
-//    struct sExpression *e = parseExpression("(A.B).C");
-//    struct sExpression *e = parseExpression("(A.B).C.D");
-//    struct sExpression *e = parseExpression("(A.B).(C.D)");
-//    struct sExpression *e = parseExpression("(A.(B.C))");
-//    struct sExpression *e = parseExpression("(((A.B)))");
+    struct sExpression *e1 = parseExpression("A.B");
+    struct sExpression *e2 = parseExpression("(A.B)");
+    struct sExpression *e3 = parseExpression("(A.B).C");
+    struct sExpression *e4 = parseExpression("(A.B).C.D");
+    struct sExpression *e5 = parseExpression("(A.B).(C.D)");
+    struct sExpression *e6 = parseExpression("(A.(B.C))");
+    struct sExpression *e7 = parseExpression("(((A.B)))");
 
-//    struct sExpression *e = parseExpression("((A.B)).D");
-//    struct sExpression *e = parseExpression("(((A.B))).D");
-//    struct sExpression *e = parseExpression("((A.B).C).D");
-//    struct sExpression *e = parseExpression("(((A.B).C)).D");
-    struct sExpression *e = parseExpression("(((A.B).C)).D.(E.(F.G))");
+    struct sExpression *e8 = parseExpression("((A.B)).D");
+    struct sExpression *e9 = parseExpression("(((A.B))).D");
+    struct sExpression *e10 = parseExpression("((A.B).C).D");
+    struct sExpression *e11 = parseExpression("(((A.B).C)).D");
+    struct sExpression *e12 = parseExpression("(((A.B).C)).D.(E.(F.G))");
+}
 
-    // todo: Отлавливаются неправильные s-выражения
-//    struct sExpression *e = parseExpression("()");
-//    struct sExpression *e = parseExpression(".(");
-//    struct sExpression *e = parseExpression(".");
-//    struct sExpression *e = parseExpression("(.");
-//    struct sExpression *e = parseExpression("A.(");
-//    struct sExpression *e = parseExpression("A(");
-//    struct sExpression *e = parseExpression("A.(B");
-//    struct sExpression *e = parseExpression("A.(B.");
-//    struct sExpression *e = parseExpression("((A))");
-//    struct sExpression *e = parseExpression("(A.B(.C))");
+void parsIncorrectSExpressionTest() {
+    // Парсинг заведомо некорректных s-выражений
+
+    // Индекс 1
+//    struct sExpression *e1 = parseExpression("()");
+
+    // Индекс 2, а надо раньше
+//    struct sExpression *e2 = parseExpression(".(");
+
+    // Индекс 1
+//    struct sExpression *e3 = parseExpression(".");
+
+    // Индекс 2
+//    struct sExpression *e4 = parseExpression("(.");
+
+    // Индекс 3
+//    struct sExpression *e5 = parseExpression("A.(");
+
+    // Индекс 2
+//    struct sExpression *e6 = parseExpression("A(");
+
+    // Не закрыты скобки. Индекс 4
+//    struct sExpression *e7 = parseExpression("A.(B");
+
+    // Индекс 5
+//    struct sExpression *e8 = parseExpression("A.(B.");
+
+    // Не закрыты скобки. Индекс 4
+//    struct sExpression *e9 = parseExpression("((A)");
+
+    // Индекс 7 - ругается на скобки, а должен на недопустимое содержимое выражения.
+//    struct sExpression *e10 = parseExpression("(A.B(.C))");
+
+    // Индекс 4
+    struct sExpression *e11 = parseExpression("AB.Ca1");
+
+    // Пример выявления ошибки при попытке возврата итогового выражения
+//    struct sExpression *e12 = parseExpression("A..B.C");
     int i = 0;
 }
 
 int main() {
-    parseComplexSExpressionTest();
+    parsIncorrectSExpressionTest();
 
     return 0;
 }
