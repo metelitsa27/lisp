@@ -16,7 +16,7 @@ char *digitAlphabet = "0123456789";
 /**
  * Типы содержимого s-выражения
  */
-enum sExspressionType {
+enum sExpressionType {
     ATOMIC_SYMBOL = 0, EXPRESSION, DIGITAL
 };
 
@@ -97,7 +97,7 @@ struct sExpression {
     // Следующее подвыражение
     struct sExpression *next;
     // Тип содержимого текущего подвыражения
-    enum sExspressionType type;
+    enum sExpressionType type;
     // Содержимое текущего подвыражжения
     char *atomicSymbol;
     struct sExpression *subExpression;
@@ -234,7 +234,7 @@ struct sExpression *parseExpression(char *source) {
 
 
 struct universalExpression {
-    enum sExspressionType type;
+    enum sExpressionType type;
     int *number;
     char *atomicSymbol;
     struct cons *expression;
@@ -245,43 +245,87 @@ struct cons {
     struct universalExpression *cdr;
 };
 
-struct universalExpression *
-parseSource(char *source, int *counter, int *openBracketCounter, struct universalExpression *previousExpression) {
+char *getUpdatedAtomicSymbolValue(char symbol, int *counter, char *atomicSymbol) {
+    if (atomicSymbol == NULL) {
+        // Is first symbol a digit?
+        if (isDigitAlphabetSymbol(symbol)) {
+            printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c. Parsing stopped on index=%d \n",
+                   symbol, *counter);
+            return NULL;
+        }
+
+        // Is symbol in allowable alphabet?
+        if (!isSymbolAlphabetElement(symbol)) {
+            printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c. Parsing stopped on index=%d \n",
+                   symbol, *counter);
+            return NULL;
+        }
+
+        // Return updated atomic symbol value
+        return getUpdatedCharArray("", symbol);
+    } else {
+        // Current atomic symbol addition
+
+        // Is it allowable alphabet symbol or digit?
+        if (!isSymbolAlphabetElement(symbol) && !isDigitAlphabetSymbol(symbol)) {
+            printf("Unexpected symbol value=%c. Parsing stopped on index=%d \n", symbol, *counter);
+            return NULL;
+        }
+
+        // Check result atomic symbol length
+        if (strlen(atomicSymbol) >= 30) {
+            printf("Unexpected atomic symbol length. Expected no more then 30 symbols. Parsing stopped on index=%d",
+                   *counter);
+            return NULL;
+        }
+
+        // Symbol additional in result atomic symbol
+        return getUpdatedCharArray(atomicSymbol, symbol);
+    }
+}
+
+struct universalExpression *parseSource(
+        char *source,
+        int *counter,
+        int *openBracketCounter,
+        struct universalExpression *previousExpression
+) {
     struct universalExpression *value = malloc(sizeof(struct universalExpression));
     value->number = NULL;
     value->atomicSymbol = NULL;
     value->expression = NULL;
 
-    // Проходим строку
+    // Move by source string
     while (*(source + *counter) != '\0') {
         if (*(source + *counter) == '(') {
-            // Обновляем тип
-//            value->type = EXPRESSION;
-//
-//            // Фиксация открытия скобки
-//            (*openBracketCounter)++;
-//
-//            (*counter)++;
-//
-//            value->expression = malloc(sizeof(struct cons));
-//            value->expression->car = parseSource(source, counter, openBracketCounter, value);
-//
-//            // Проверка на некорректность исходного выражения
-//            if (value->expression == NULL) {
-//                return NULL;
-//            }
+            // Set type
+            value->type = EXPRESSION;
+
+            // Fix brackets opening
+            (*openBracketCounter)++;
+
+            (*counter)++;
+
+            // Init expression and it's 'car' value
+            value->expression = malloc(sizeof(struct cons));
+            value->expression->car = parseSource(source, counter, openBracketCounter, value);
+
+            // Check returned value
+            if (value->expression == NULL) return NULL;
         } else if (*(source + *counter) == ')') {
-            // Возвращение значений, пока не вернёмся к исходному выражению
-//            if (value->type == EXPRESSION && value != previousExpression) {
-//                // Фиксация закрытия скобки
-//                (*openBracketCounter)--;
-//                // Переход к следующему символу
-//                (*counter)++;
-//
-//                previousExpression = value;
-//            } else break;
+            // Check returning value on previous level until getting source expression
+            if (value->type == EXPRESSION && value != previousExpression) {
+                // Fix brackets closing
+                (*openBracketCounter)--;
+                // Update counter
+                (*counter)++;
+
+                previousExpression = value;
+            } else break;
         } else if (*(source + *counter) == ' ' || *(source + *counter) == '.') {
             (*counter)++;
+
+            // todo: fix this logic later
 
             // Check atomic value and move to expression
             if (value->type == ATOMIC_SYMBOL && value->atomicSymbol != NULL) {
@@ -303,59 +347,31 @@ parseSource(char *source, int *counter, int *openBracketCounter, struct universa
 
                 // Go to next value
                 value->expression->cdr = parseSource(source, counter, openBracketCounter, value);
-            } else {
+
+                // Check expression 'cdr' value
+                if (value->expression->cdr == NULL) return NULL;
+            } else if(value->type == EXPRESSION && value->expression->cdr != NULL){
                 // todo: logging unexpected value
                 return NULL;
             }
-
-            // Check expression car value
-//            if (value->expression->car == NULL) {
-//                return NULL;
-//            }
         } else {
-            // Check first symbol of atomic symbol
-            if (value->atomicSymbol == NULL) {
-                // Первый символ АС цифра?
-                if (isDigitAlphabetSymbol(*(source + *counter))) {
-                    printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c. Parsing stopped on index=%d \n",
-                           *(source + *counter), *counter);
-                    return NULL;
-                }
+            // todo: atomic car? cdr?
 
-                // Is symbol in allowable alphabet?
-                if (!isSymbolAlphabetElement(*(source + *counter))) {
-                    printf("First symbol of atomic symbol must be an alphabet character. Unexpected first symbol value=%c. Parsing stopped on index=%d \n",
-                           *(source + *counter), *counter);
-                    return NULL;
-                }
+            // Accumulate symbol value
+            if (value->type == ATOMIC_SYMBOL) {
+                value->atomicSymbol = getUpdatedAtomicSymbolValue(*(source + *counter), counter, value->atomicSymbol);
 
-                // Adding symbol in atomic symbol
-                value->atomicSymbol = "";
-                value->atomicSymbol = getUpdatedCharArray(value->atomicSymbol,
-                                                          *(source + *counter));
+                // Is failure?
+                if (value->atomicSymbol == NULL) return NULL;
+            } else if (value->type == EXPRESSION) {
+                // Init expression 'cdr' value
+                value->expression->cdr = parseSource(source, counter, openBracketCounter, value);
+                // Is failure?
+                if (value->expression->cdr == NULL) return NULL;
             } else {
-                // Current atomic symbol addition
-
-                // Is it allowable alphabet symbol or digit?
-                if (!isSymbolAlphabetElement(*(source + *counter)) && !isDigitAlphabetSymbol(*(source + *counter))) {
-                    printf("Unexpected symbol value=%c. Parsing stopped on index=%d \n", *(source + *counter),
-                           *counter);
-                    return NULL;
-                }
-
-                // Check result atomic symbol length
-                if (strlen(value->atomicSymbol) >= 30) {
-                    printf("Unexpected atomic symbol length. Expected no more then 30 symbols. Parsing stopped on index=%d",
-                           *counter);
-                    return NULL;
-                }
-
-                // Symbol additional in result atomic symbol
-                value->atomicSymbol = getUpdatedCharArray(
-                        value->atomicSymbol,
-                        *(source + *counter)
-                );
+                // todo: log incorrect state
             }
+
             (*counter)++;
         }
     }
@@ -541,11 +557,29 @@ void parsIncorrectSExpressionTest() {
     int i = 0;
 }
 
-int main() {
+/** New parsing tests **/
 
-    // correct
-//    struct cons * ex = parseSourceExpression("A.B");
-    // correct
-    struct cons *ex = parseSourceExpression("A.B.C");
+void testParseSourceExpression() {
+
+    // Simple expressions
+
+//    struct cons *ex1 = parseSourceExpression("A.B");
+//    struct cons *ex2 = parseSourceExpression("A.B.C");
+//    struct cons *ex3 = parseSourceExpression("A.B.C.D");
+//
+//    // Complex expressions
+//
+//    struct cons *ex4 = parseSourceExpression("(A)");
+//    struct cons *ex5 = parseSourceExpression("(A.B)");
+//    struct cons *ex6 = parseSourceExpression("(A.B.C.D)");
+
+    struct cons *ex7 = parseSourceExpression("(A.B).C");
+
+    int i = 0;
+}
+
+int main() {
+    testParseSourceExpression();
+
     return 0;
 }
