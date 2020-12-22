@@ -401,15 +401,26 @@ struct universalExpression *createUniversalExpression() {
     return expression;
 }
 
-struct cons *parseSource(
+struct cons *createCons() {
+    struct cons *expression = malloc(sizeof(struct cons));
+
+    expression->car = NULL;
+    expression->cdr = NULL;
+
+    return expression;
+}
+
+struct universalExpression *parseSource(
         char *source,
         int *counter,
         int *openBracketCounter,
         struct universalExpression *previousExpression
 ) {
-    struct cons *value = malloc(sizeof(struct universalExpression));
-    value->car = NULL;
-    value->cdr = NULL;
+    struct universalExpression *value = createUniversalExpression();
+
+    // Init default type
+    value->type = EXPRESSION;
+    value->expression = createCons();
 
     // Move by source string
     while (*(source + *counter) != '\0') {
@@ -419,11 +430,10 @@ struct cons *parseSource(
                 // todo: fill 'cdr' like AS or expression
                 (*counter)++;
 
-                value->cdr = createUniversalExpression();
-                value->cdr = parseSource(source, counter, openBracketCounter, value);
+                value->expression->cdr = parseSource(source, counter, openBracketCounter, value);
 
                 // Is failure?
-                if (value->cdr == NULL) return NULL;
+                if (value->expression->cdr == NULL) return NULL;
             }
             case ' ': {
                 break;
@@ -436,17 +446,17 @@ struct cons *parseSource(
             }
             default: {
                 // Init car
-                if (value->car == NULL) value->car = createUniversalExpression();
+                if (value->expression->car == NULL) value->expression->car = createUniversalExpression();
 
                 // Accumulate symbol value
-                if (value->car->type == ATOMIC_SYMBOL) {
-                    value->car->atomicSymbol = getUpdatedAtomicSymbolValue(
+                if (value->expression->car->type == ATOMIC_SYMBOL) {
+                    value->expression->car->atomicSymbol = getUpdatedAtomicSymbolValue(
                             *(source + *counter), counter,
-                            value->car->atomicSymbol
+                            value->expression->car->atomicSymbol
                     );
 
                     // Is failure?
-                    if (value->car->atomicSymbol == NULL) return NULL;
+                    if (value->expression->car->atomicSymbol == NULL) return NULL;
                 }
 
                 (*counter)++;
@@ -454,10 +464,17 @@ struct cons *parseSource(
         }
     }
 
+    // Check result type and change by necessary
+    if (value->type == EXPRESSION && value->expression->cdr == NULL && value->expression->car != NULL) {
+        value->type = ATOMIC_SYMBOL;
+        value->atomicSymbol = value->expression->car->atomicSymbol;
+        value->expression = NULL;
+    }
+
     return value;
 }
 
-struct cons *parseSourceExpression(char *source) {
+struct universalExpression *parseSourceExpression(char *source) {
     // todo: add failure index value later
 
     // Primary read counter
@@ -466,7 +483,7 @@ struct cons *parseSourceExpression(char *source) {
     // Bracket counter
     int openBracketCounter = 0;
 
-    struct cons *result = parseSource(source, &counter, &openBracketCounter, NULL);
+    struct universalExpression *result = parseSource(source, &counter, &openBracketCounter, NULL);
 
     if (openBracketCounter != 0) {
         printf("\nThere are hasn't closed brackets: open brackets counter=%d. Parsing stopped on index=%d \n",
