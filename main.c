@@ -284,109 +284,175 @@ char *getUpdatedAtomicSymbolValue(char symbol, int *counter, char *atomicSymbol)
     }
 }
 
-struct universalExpression *parseSource(
+//struct universalExpression *parseSource(
+//        char *source,
+//        int *counter,
+//        int *openBracketCounter,
+//        struct universalExpression *previousExpression
+//) {
+//    struct universalExpression *value = malloc(sizeof(struct universalExpression));
+//    value->number = NULL;
+//    value->atomicSymbol = NULL;
+//    value->expression = NULL;
+//
+//    // Move by source string
+//    while (*(source + *counter) != '\0') {
+//        if (*(source + *counter) == '(') {
+//            // Set type
+//            value->type = EXPRESSION;
+//
+//            // Fix brackets opening
+//            (*openBracketCounter)++;
+//
+//            (*counter)++;
+//
+//            // Init expression and it's 'car' value
+//            value->expression = malloc(sizeof(struct cons));
+//            value->expression->car = parseSource(source, counter, openBracketCounter, value);
+//
+//            // Check returned value
+//            if (value->expression == NULL) return NULL;
+//        } else if (*(source + *counter) == ')') {
+//            // Check returning value on previous level until getting source expression
+//            if (value->type == EXPRESSION && value != previousExpression) {
+//                // Fix brackets closing
+//                (*openBracketCounter)--;
+//                // Update counter
+//                (*counter)++;
+//
+//                previousExpression = value;
+//            } else break;
+//        } else if (*(source + *counter) == ' ' || *(source + *counter) == '.') {
+//            (*counter)++;
+//
+//            // todo: fix this logic later
+//
+//            // Check atomic value and move to expression
+//            if (value->type == ATOMIC_SYMBOL && value->atomicSymbol != NULL) {
+//
+//                // Init expression value
+//                if (value->expression == NULL) {
+//                    value->expression = malloc(sizeof(struct cons));
+//                }
+//
+//                // Init expression 'car' value
+//                value->expression->car = malloc(sizeof(struct universalExpression));
+//
+//                // Set 'car' like atomic symbol
+//                value->expression->car->atomicSymbol = value->atomicSymbol;
+//
+//                // Reset value's atomic symbol and type
+//                value->atomicSymbol = NULL;
+//                value->type = EXPRESSION;
+//
+//                // Go to next value
+//                value->expression->cdr = parseSource(source, counter, openBracketCounter, value);
+//
+//                // Check expression 'cdr' value
+//                if (value->expression->cdr == NULL) return NULL;
+//            } else if(value->type == EXPRESSION && value->expression->cdr != NULL){
+//                // todo: logging unexpected value
+//                return NULL;
+//            }
+//        } else {
+//            // todo: atomic car? cdr?
+//
+//            // Accumulate symbol value
+//            if (value->type == ATOMIC_SYMBOL) {
+//                value->atomicSymbol = getUpdatedAtomicSymbolValue(*(source + *counter), counter, value->atomicSymbol);
+//
+//                // Is failure?
+//                if (value->atomicSymbol == NULL) return NULL;
+//            } else if (value->type == EXPRESSION) {
+//                // Init expression 'cdr' value
+//                value->expression->cdr = parseSource(source, counter, openBracketCounter, value);
+//                // Is failure?
+//                if (value->expression->cdr == NULL) return NULL;
+//            } else {
+//                // todo: log incorrect state
+//            }
+//
+//            (*counter)++;
+//        }
+//    }
+//
+//    // Проверки на корректность содержимого
+//
+////    if (value->type == EXPRESSION && value->expression == NULL) {
+////        printf("Empty sub expression value. Parsing stopped on index=%d", *counter);
+////        return NULL;
+////    }
+////
+////    if (value->type == ATOMIC_SYMBOL && value->atomicSymbol == NULL) {
+////        printf("Empty atomic symbol value. Parsing stopped on index=%d", *counter);
+////        return NULL;
+////    }
+//
+//    return value;
+//}
+
+struct universalExpression *createUniversalExpression() {
+    struct universalExpression *expression = malloc(sizeof(struct universalExpression));
+
+    expression->number = NULL;
+    expression->atomicSymbol = NULL;
+    expression->expression = NULL;
+
+    return expression;
+}
+
+struct cons *parseSource(
         char *source,
         int *counter,
         int *openBracketCounter,
         struct universalExpression *previousExpression
 ) {
-    struct universalExpression *value = malloc(sizeof(struct universalExpression));
-    value->number = NULL;
-    value->atomicSymbol = NULL;
-    value->expression = NULL;
+    struct cons *value = malloc(sizeof(struct universalExpression));
+    value->car = NULL;
+    value->cdr = NULL;
 
     // Move by source string
     while (*(source + *counter) != '\0') {
-        if (*(source + *counter) == '(') {
-            // Set type
-            value->type = EXPRESSION;
 
-            // Fix brackets opening
-            (*openBracketCounter)++;
-
-            (*counter)++;
-
-            // Init expression and it's 'car' value
-            value->expression = malloc(sizeof(struct cons));
-            value->expression->car = parseSource(source, counter, openBracketCounter, value);
-
-            // Check returned value
-            if (value->expression == NULL) return NULL;
-        } else if (*(source + *counter) == ')') {
-            // Check returning value on previous level until getting source expression
-            if (value->type == EXPRESSION && value != previousExpression) {
-                // Fix brackets closing
-                (*openBracketCounter)--;
-                // Update counter
+        switch (*(source + *counter)) {
+            case '.': {
+                // todo: fill 'cdr' like AS or expression
                 (*counter)++;
 
-                previousExpression = value;
-            } else break;
-        } else if (*(source + *counter) == ' ' || *(source + *counter) == '.') {
-            (*counter)++;
+                value->cdr = createUniversalExpression();
+                value->cdr = parseSource(source, counter, openBracketCounter, value);
 
-            // todo: fix this logic later
+                // Is failure?
+                if (value->cdr == NULL) return NULL;
+            }
+            case ' ': {
+                break;
+            }
+            case '(': {
+                break;
+            }
+            case ')': {
+                break;
+            }
+            default: {
+                // Init car
+                if (value->car == NULL) value->car = createUniversalExpression();
 
-            // Check atomic value and move to expression
-            if (value->type == ATOMIC_SYMBOL && value->atomicSymbol != NULL) {
+                // Accumulate symbol value
+                if (value->car->type == ATOMIC_SYMBOL) {
+                    value->car->atomicSymbol = getUpdatedAtomicSymbolValue(
+                            *(source + *counter), counter,
+                            value->car->atomicSymbol
+                    );
 
-                // Init expression value
-                if (value->expression == NULL) {
-                    value->expression = malloc(sizeof(struct cons));
+                    // Is failure?
+                    if (value->car->atomicSymbol == NULL) return NULL;
                 }
 
-                // Init expression 'car' value
-                value->expression->car = malloc(sizeof(struct universalExpression));
-
-                // Set 'car' like atomic symbol
-                value->expression->car->atomicSymbol = value->atomicSymbol;
-
-                // Reset value's atomic symbol and type
-                value->atomicSymbol = NULL;
-                value->type = EXPRESSION;
-
-                // Go to next value
-                value->expression->cdr = parseSource(source, counter, openBracketCounter, value);
-
-                // Check expression 'cdr' value
-                if (value->expression->cdr == NULL) return NULL;
-            } else if(value->type == EXPRESSION && value->expression->cdr != NULL){
-                // todo: logging unexpected value
-                return NULL;
+                (*counter)++;
             }
-        } else {
-            // todo: atomic car? cdr?
-
-            // Accumulate symbol value
-            if (value->type == ATOMIC_SYMBOL) {
-                value->atomicSymbol = getUpdatedAtomicSymbolValue(*(source + *counter), counter, value->atomicSymbol);
-
-                // Is failure?
-                if (value->atomicSymbol == NULL) return NULL;
-            } else if (value->type == EXPRESSION) {
-                // Init expression 'cdr' value
-                value->expression->cdr = parseSource(source, counter, openBracketCounter, value);
-                // Is failure?
-                if (value->expression->cdr == NULL) return NULL;
-            } else {
-                // todo: log incorrect state
-            }
-
-            (*counter)++;
         }
     }
-
-    // Проверки на корректность содержимого
-
-//    if (value->type == EXPRESSION && value->expression == NULL) {
-//        printf("Empty sub expression value. Parsing stopped on index=%d", *counter);
-//        return NULL;
-//    }
-//
-//    if (value->type == ATOMIC_SYMBOL && value->atomicSymbol == NULL) {
-//        printf("Empty atomic symbol value. Parsing stopped on index=%d", *counter);
-//        return NULL;
-//    }
 
     return value;
 }
@@ -400,11 +466,13 @@ struct cons *parseSourceExpression(char *source) {
     // Bracket counter
     int openBracketCounter = 0;
 
-    struct cons *result = malloc(sizeof(struct cons));
+    struct cons *result = parseSource(source, &counter, &openBracketCounter, NULL);
 
-    result->car = parseSource(source, &counter, &openBracketCounter, NULL);
-
-    // todo: add checking brackets
+    if (openBracketCounter != 0) {
+        printf("\nThere are hasn't closed brackets: open brackets counter=%d. Parsing stopped on index=%d \n",
+               *(&openBracketCounter), counter);
+        return NULL;
+    }
 
     return result;
 }
@@ -520,7 +588,7 @@ void parsIncorrectSExpressionTest() {
     // Парсинг заведомо некорректных s-выражений
 
     // Индекс 1
-//    struct sExpression *e1 = parseExpression("()");
+    struct sExpression *e1 = parseExpression("()");
 
     // Индекс 2, а надо раньше
 //    struct sExpression *e2 = parseExpression(".(");
@@ -563,7 +631,8 @@ void testParseSourceExpression() {
 
     // Simple expressions
 
-//    struct cons *ex1 = parseSourceExpression("A.B");
+    struct cons *ex0 = parseSourceExpression("ABCDEF");
+    struct cons *ex1 = parseSourceExpression("A.B");
 //    struct cons *ex2 = parseSourceExpression("A.B.C");
 //    struct cons *ex3 = parseSourceExpression("A.B.C.D");
 //
@@ -573,7 +642,7 @@ void testParseSourceExpression() {
 //    struct cons *ex5 = parseSourceExpression("(A.B)");
 //    struct cons *ex6 = parseSourceExpression("(A.B.C.D)");
 
-    struct cons *ex7 = parseSourceExpression("(A.B).C");
+//    struct cons *ex7 = parseSourceExpression("(A.B).C");
 
     int i = 0;
 }
