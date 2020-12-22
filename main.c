@@ -648,13 +648,13 @@ void testParseSourceExpression() {
 
     // Simple expressions
 
-    struct cons *ex0 = parseSourceExpression("ABCDEF");
-    struct cons *ex1 = parseSourceExpression("A.B");
-//    struct cons *ex2 = parseSourceExpression("A.B.C");
-//    struct cons *ex3 = parseSourceExpression("A.B.C.D");
-//
-//    // Complex expressions
-//
+    struct universalExpression *ex0 = parseSourceExpression("ABCDEF");
+    struct universalExpression *ex1 = parseSourceExpression("A.B");
+    struct universalExpression *ex2 = parseSourceExpression("A.B.C");
+    struct universalExpression *ex3 = parseSourceExpression("A.B.C.D");
+
+    // Complex expressions
+
 //    struct cons *ex4 = parseSourceExpression("(A)");
 //    struct cons *ex5 = parseSourceExpression("(A.B)");
 //    struct cons *ex6 = parseSourceExpression("(A.B.C.D)");
